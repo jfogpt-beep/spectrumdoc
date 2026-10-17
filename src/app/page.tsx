@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { FileText, Image as ImageIcon, Globe, Loader2, Zap, Upload, Download, FolderOpen } from "lucide-react";
+import { FileText, Image as ImageIcon, Globe, Loader2, Zap, Upload, Download, FolderOpen, ImageDown } from "lucide-react";
 
 type Tab = "doc" | "image" | "web";
 
@@ -84,6 +84,38 @@ export default function Home() {
     a.click();
     URL.revokeObjectURL(a.href);
     setStatus("Espectro descargado");
+  };
+
+  const downloadImage = async () => {
+    const svg = document.querySelector(".recharts-wrapper svg") as SVGElement | null;
+    if (!svg) {
+      setStatus("Genera primero un espectro");
+      return;
+    }
+    try {
+      const svgData = new XMLSerializer().serializeToString(svg);
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      const img = new Image();
+      const svgBlob = new Blob([svgData], { type: "image/svg+xml;charset=utf-8" });
+      const url = URL.createObjectURL(svgBlob);
+
+      img.onload = () => {
+        canvas.width = img.width || 800;
+        canvas.height = img.height || 400;
+        ctx?.fillRect(0, 0, canvas.width, canvas.height);
+        ctx?.drawImage(img, 0, 0);
+        const a = document.createElement("a");
+        a.href = canvas.toDataURL("image/png");
+        a.download = `spectrum-chart-${Date.now()}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setStatus("Imagen del gráfico descargada");
+      };
+      img.src = url;
+    } catch {
+      setStatus("Error al generar imagen. Usa captura de pantalla.");
+    }
   };
 
   const loadSpectrum = (file: File) => {
@@ -259,6 +291,12 @@ export default function Home() {
                 className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm"
               >
                 <Download size={16} /> Descargar Espectro
+              </button>
+              <button
+                onClick={downloadImage}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm"
+              >
+                <ImageDown size={16} /> Descargar Imagen
               </button>
               <label className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm cursor-pointer">
                 <FolderOpen size={16} /> Cargar Espectro
