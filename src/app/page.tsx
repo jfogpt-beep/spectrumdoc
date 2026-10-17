@@ -279,17 +279,21 @@ export default function Home() {
                 if (!file) return;
                 setLoading(true);
                 setStatus("Calculando espectro de bordes...");
+                setSpectrum(null);
                 try {
                   const edges = await processImageEdges(file);
-                  // Also process as text for frequency (OCR placeholder)
-                  const form = new FormData();
-                  form.append("file", file);
-                  form.append("type", "image");
-                  const res = await fetch("/api/process", { method: "POST", body: form });
-                  const data = await res.json();
-                  setSpectrum({ ...data, edges });
-                  setStatus("Espectro de imagen generado");
-                } catch {
+                  let textData = { wordFreq: [], rhythm: [] };
+                  try {
+                    const form = new FormData();
+                    form.append("file", file);
+                    form.append("type", "image");
+                    const res = await fetch("/api/process", { method: "POST", body: form });
+                    if (res.ok) textData = await res.json();
+                  } catch {}
+                  setSpectrum({ ...textData, edges });
+                  setStatus(`Espectro generado (${edges.width}x${edges.height} bordes)`);
+                } catch (err) {
+                  console.error(err);
                   setStatus("Error al procesar imagen");
                 } finally {
                   setLoading(false);
