@@ -397,6 +397,17 @@ export default function Home() {
 
         {spectrum ? (
           <div className="space-y-6">
+            {spectrum.edges && (
+              <div className="p-3 bg-slate-900/50 rounded-lg border border-slate-800">
+                <h4 className="text-xs text-violet-400 mb-2">Espectro de Bordes (Imagen)</h4>
+                <p className="text-xs text-slate-400">
+                  Resolución: {spectrum.edges.width}×{spectrum.edges.height} · 
+                  Puntos: {spectrum.edges.data.length.toLocaleString()} · 
+                  Intensidad media: {(spectrum.edges.data.reduce((a,b)=>a+b,0)/spectrum.edges.data.length).toFixed(1)}
+                </p>
+              </div>
+            )}
+
             {spectrum.wordFreq?.length > 0 && (
               <div className="h-52">
                 <h4 className="text-xs text-cyan-400 mb-1">Espectro de Amplitud Semántica</h4>
