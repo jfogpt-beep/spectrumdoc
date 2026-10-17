@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { FileText, Image as ImageIcon, Globe, Loader2, Zap, Upload, Download, FolderOpen, ImageDown } from "lucide-react";
+import { FileText, Image as ImageIcon, Globe, Loader2, Zap, Upload, Download, FolderOpen, ImageDown, RotateCcw } from "lucide-react";
 
 type Tab = "doc" | "image" | "web";
 
@@ -10,6 +10,7 @@ interface SpectrumData {
   wordFreq: { word: string; count: number }[];
   rhythm: { pos: number; length: number }[];
   rawText?: string;
+  edges?: { width: number; height: number; data: number[] };
 }
 
 export default function Home() {
@@ -86,7 +87,75 @@ export default function Home() {
     setStatus("Espectro descargado");
   };
 
-  const downloadImage = async () => {
+  const processImageEdges = (file: File): Promise<{ width: number; height: number; data: number[] }> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxSize = 200;
+        const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
+        canvas.width = Math.floor(img.width * scale);
+        canvas.height = Math.floor(img.height * scale);
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+        const edges: number[] = [];
+
+        // Simple Sobel-like edge detection
+        for (let y = 1; y < canvas.height - 1; y++) {
+          for (let x = 1; x < canvas.width - 1; x++) {
+            const idx = (y * canvas.width + x) * 4;
+            const idxUp = ((y - 1) * canvas.width + x) * 4;
+            const idxDown = ((y + 1) * canvas.width + x) * 4;
+            const idxLeft = (y * canvas.width + (x - 1)) * 4;
+            const idxRight = (y * canvas.width + (x + 1)) * 4;
+
+            const gray = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
+            const grayUp = (data[idxUp] + data[idxUp + 1] + data[idxUp + 2]) / 3;
+            const grayDown = (data[idxDown] + data[idxDown + 1] + data[idxDown + 2]) / 3;
+            const grayLeft = (data[idxLeft] + data[idxLeft + 1] + data[idxLeft + 2]) / 3;
+            const grayRight = (data[idxRight] + data[idxRight + 1] + data[idxRight + 2]) / 3;
+
+            const gx = grayRight - grayLeft;
+            const gy = grayDown - grayUp;
+            const magnitude = Math.min(255, Math.sqrt(gx * gx + gy * gy));
+            edges.push(magnitude);
+          }
+        }
+        resolve({ width: canvas.width - 2, height: canvas.height - 2, data: edges });
+      };
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
+  const reconstructImage = () => {
+    if (!spectrum?.edges) {
+      setStatus("No hay espectro de imagen para reconstruir");
+      return;
+    }
+    const { width, height, data } = spectrum.edges;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d")!;
+    const imageData = ctx.createImageData(width, height);
+
+    for (let i = 0; i < data.length; i++) {
+      const v = Math.min(255, data[i]);
+      imageData.data[i * 4] = v;
+      imageData.data[i * 4 + 1] = v;
+      imageData.data[i * 4 + 2] = v;
+      imageData.data[i * 4 + 3] = 255;
+    }
+    ctx.putImageData(imageData, 0, 0);
+
+    const a = document.createElement("a");
+    a.href = canvas.toDataURL("image/png");
+    a.download = `reconstructed-edges-${Date.now()}.png`;
+    a.click();
+    setStatus("Imagen de bordes reconstruida");
+  };
     const svg = document.querySelector(".recharts-wrapper svg") as SVGElement | null;
     if (!svg) {
       setStatus("Genera primero un espectro");
@@ -183,7 +252,27 @@ export default function Home() {
             <input
               type="file"
               accept="image/*"
-              onChange={(e) => processFile(e.target.files?.[0] || null)}
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setLoading(true);
+                setStatus("Calculando espectro de bordes...");
+                try {
+                  const edges = await processImageEdges(file);
+                  // Also process as text for frequency (OCR placeholder)
+                  const form = new FormData();
+                  form.append("file", file);
+                  form.append("type", "image");
+                  const res = await fetch("/api/process", { method: "POST", body: form });
+                  const data = await res.json();
+                  setSpectrum({ ...data, edges });
+                  setStatus("Espectro de imagen generado");
+                } catch {
+                  setStatus("Error al procesar imagen");
+                } finally {
+                  setLoading(false);
+                }
+              }}
               className="block w-full text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-violet-600 file:text-white"
             />
           </div>
@@ -298,6 +387,14 @@ export default function Home() {
               >
                 <ImageDown size={16} /> Descargar Imagen
               </button>
+              {spectrum?.edges && (
+                <button
+                  onClick={reconstructImage}
+                  className="flex items-center gap-2 px-4 py-2 bg-violet-700 hover:bg-violet-600 rounded-lg text-sm"
+                >
+                  <RotateCcw size={16} /> Reconstruir Imagen
+                </button>
+              )}
               <label className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm cursor-pointer">
                 <FolderOpen size={16} /> Cargar Espectro
                 <input
