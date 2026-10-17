@@ -20,7 +20,6 @@ export default function Home() {
   const [spectrum, setSpectrum] = useState<SpectrumData | null>(null);
   const [decoded, setDecoded] = useState("");
   const [url, setUrl] = useState("");
-  const [bytesInput, setBytesInput] = useState("");
 
   const processFile = async (file: File | null, isUrl = false) => {
     if (!file && !isUrl) return;
@@ -64,15 +63,6 @@ export default function Home() {
     } finally {
       setLoading(false);
       setStatus("");
-    }
-  };
-
-  const decodeBytes = () => {
-    try {
-      const nums = bytesInput.split(/[\s,]+/).map(Number).filter((n) => !isNaN(n) && n >= 0 && n <= 255);
-      setDecoded(String.fromCharCode(...nums) || "Sin caracteres válidos");
-    } catch {
-      setDecoded("Entrada inválida");
     }
   };
 
@@ -324,19 +314,6 @@ export default function Home() {
             </button>
           </div>
         )}
-
-        <div className="mt-8 p-4 bg-slate-900/50 rounded-lg border border-slate-800">
-          <h3 className="text-sm font-medium text-violet-300 mb-2">Simulador Criptográfico (ASCII reverso)</h3>
-          <textarea
-            value={bytesInput}
-            onChange={(e) => setBytesInput(e.target.value)}
-            placeholder="Ej: 72 111 108 97"
-            className="w-full h-20 bg-slate-800 border border-slate-700 rounded p-2 text-xs font-mono"
-          />
-          <button onClick={decodeBytes} className="mt-2 px-3 py-1 bg-violet-600 hover:bg-violet-500 rounded text-xs">
-            Decodificar Bytes
-          </button>
-        </div>
 
         {/* Cargar espectro siempre visible */}
         <div className="mt-4">
