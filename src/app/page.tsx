@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { FileText, Image as ImageIcon, Globe, Loader2, Zap, Upload } from "lucide-react";
+import { FileText, Image as ImageIcon, Globe, Loader2, Zap, Upload, Download, FolderOpen } from "lucide-react";
 
 type Tab = "doc" | "image" | "web";
 
@@ -73,6 +73,36 @@ export default function Home() {
     } catch {
       setDecoded("Entrada inválida");
     }
+  };
+
+  const downloadSpectrum = () => {
+    if (!spectrum) return;
+    const blob = new Blob([JSON.stringify(spectrum, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `spectrum-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    setStatus("Espectro descargado");
+  };
+
+  const loadSpectrum = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target?.result as string);
+        if (data.wordFreq && data.rhythm) {
+          setSpectrum(data);
+          setDecoded("");
+          setStatus("Espectro restaurado");
+        } else {
+          setStatus("Archivo inválido");
+        }
+      } catch {
+        setStatus("Error al leer el archivo");
+      }
+    };
+    reader.readAsText(file);
   };
 
   return (
@@ -209,6 +239,24 @@ export default function Home() {
             >
               <Zap size={16} /> Decodificar Espectro de Señal
             </button>
+
+            <div className="flex flex-wrap gap-2 mt-3">
+              <button
+                onClick={downloadSpectrum}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm"
+              >
+                <Download size={16} /> Descargar Espectro
+              </button>
+              <label className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm cursor-pointer">
+                <FolderOpen size={16} /> Cargar Espectro
+                <input
+                  type="file"
+                  accept=".json"
+                  className="hidden"
+                  onChange={(e) => e.target.files?.[0] && loadSpectrum(e.target.files[0])}
+                />
+              </label>
+            </div>
 
             {decoded && (
               <div className="mt-4 p-4 bg-slate-900 border border-slate-700 rounded-lg">
