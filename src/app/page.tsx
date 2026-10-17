@@ -337,6 +337,40 @@ export default function Home() {
           <span className="text-xs px-2 py-1 bg-slate-800 rounded">Gráficos del Espectro</span>
         </div>
 
+        {/* Botones siempre visibles */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          <button
+            onClick={downloadSpectrum}
+            disabled={!spectrum}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 rounded-lg text-sm"
+          >
+            <Download size={16} /> Descargar Espectro
+          </button>
+          <button
+            onClick={downloadImage}
+            disabled={!spectrum}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-40 rounded-lg text-sm"
+          >
+            <ImageDown size={16} /> Descargar Imagen
+          </button>
+          <button
+            onClick={reconstructImage}
+            disabled={!spectrum?.edges}
+            className="flex items-center gap-2 px-4 py-2 bg-violet-700 hover:bg-violet-600 disabled:opacity-40 rounded-lg text-sm"
+          >
+            <RotateCcw size={16} /> Reconstruir Imagen
+          </button>
+          <label className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm cursor-pointer">
+            <FolderOpen size={16} /> Cargar Espectro
+            <input
+              type="file"
+              accept=".json"
+              className="hidden"
+              onChange={(e) => e.target.files?.[0] && loadSpectrum(e.target.files[0])}
+            />
+          </label>
+        </div>
+
         {spectrum ? (
           <div className="space-y-6">
             {spectrum.wordFreq?.length > 0 && (
@@ -375,38 +409,6 @@ export default function Home() {
             >
               <Zap size={16} /> Decodificar Espectro de Señal
             </button>
-
-            <div className="flex flex-wrap gap-2 mt-3">
-              <button
-                onClick={downloadSpectrum}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm"
-              >
-                <Download size={16} /> Descargar Espectro
-              </button>
-              <button
-                onClick={downloadImage}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm"
-              >
-                <ImageDown size={16} /> Descargar Imagen
-              </button>
-              {spectrum?.edges && (
-                <button
-                  onClick={reconstructImage}
-                  className="flex items-center gap-2 px-4 py-2 bg-violet-700 hover:bg-violet-600 rounded-lg text-sm"
-                >
-                  <RotateCcw size={16} /> Reconstruir Imagen
-                </button>
-              )}
-              <label className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm cursor-pointer">
-                <FolderOpen size={16} /> Cargar Espectro
-                <input
-                  type="file"
-                  accept=".json"
-                  className="hidden"
-                  onChange={(e) => e.target.files?.[0] && loadSpectrum(e.target.files[0])}
-                />
-              </label>
-            </div>
 
             {decoded && (
               <div className="mt-4 p-4 bg-slate-900 border border-slate-700 rounded-lg">
