@@ -87,12 +87,12 @@ export default function Home() {
     setStatus("Espectro descargado");
   };
 
-  const processImageEdges = (file: File): Promise<{ width: number; height: number; data: number[] }> => {
+  const processImageEdges = (file: File): Promise<{ width: number; height: number; data: number[]; colors: number[] }> => {
     return new Promise((resolve) => {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement("canvas");
-        const maxSize = 200;
+        const maxSize = 256;
         const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
         canvas.width = Math.floor(img.width * scale);
         canvas.height = Math.floor(img.height * scale);
@@ -101,29 +101,32 @@ export default function Home() {
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = imageData.data;
         const edges: number[] = [];
+        const colors: number[] = [];
 
-        // Simple Sobel-like edge detection
+        // Improved Sobel + color sampling
         for (let y = 1; y < canvas.height - 1; y++) {
           for (let x = 1; x < canvas.width - 1; x++) {
             const idx = (y * canvas.width + x) * 4;
-            const idxUp = ((y - 1) * canvas.width + x) * 4;
-            const idxDown = ((y + 1) * canvas.width + x) * 4;
-            const idxLeft = (y * canvas.width + (x - 1)) * 4;
-            const idxRight = (y * canvas.width + (x + 1)) * 4;
-
-            const gray = (data[idx] + data[idx + 1] + data[idx + 2]) / 3;
-            const grayUp = (data[idxUp] + data[idxUp + 1] + data[idxUp + 2]) / 3;
-            const grayDown = (data[idxDown] + data[idxDown + 1] + data[idxDown + 2]) / 3;
-            const grayLeft = (data[idxLeft] + data[idxLeft + 1] + data[idxLeft + 2]) / 3;
-            const grayRight = (data[idxRight] + data[idxRight + 1] + data[idxRight + 2]) / 3;
+            
+            // Grayscale for edges
+            const gray = (data[idx] * 0.299 + data[idx + 1] * 0.587 + data[idx + 2] * 0.114);
+            const grayUp = (data[((y - 1) * canvas.width + x) * 4] * 0.299 + data[((y - 1) * canvas.width + x) * 4 + 1] * 0.587 + data[((y - 1) * canvas.width + x) * 4 + 2] * 0.114);
+            const grayDown = (data[((y + 1) * canvas.width + x) * 4] * 0.299 + data[((y + 1) * canvas.width + x) * 4 + 1] * 0.587 + data[((y + 1) * canvas.width + x) * 4 + 2] * 0.114);
+            const grayLeft = (data[(y * canvas.width + (x - 1)) * 4] * 0.299 + data[(y * canvas.width + (x - 1)) * 4 + 1] * 0.587 + data[(y * canvas.width + (x - 1)) * 4 + 2] * 0.114);
+            const grayRight = (data[(y * canvas.width + (x + 1)) * 4] * 0.299 + data[(y * canvas.width + (x + 1)) * 4 + 1] * 0.587 + data[(y * canvas.width + (x + 1)) * 4 + 2] * 0.114);
 
             const gx = grayRight - grayLeft;
             const gy = grayDown - grayUp;
-            const magnitude = Math.min(255, Math.sqrt(gx * gx + gy * gy));
+            const magnitude = Math.min(255, Math.sqrt(gx * gx + gy * gy) * 1.5);
             edges.push(magnitude);
+
+            // Store sampled color (every 4th pixel for size)
+            if ((x % 2 === 0) && (y % 2 === 0)) {
+              colors.push(data[idx], data[idx + 1], data[idx + 2]);
+            }
           }
         }
-        resolve({ width: canvas.width - 2, height: canvas.height - 2, data: edges });
+        resolve({ width: canvas.width - 2, height: canvas.height - 2, data: edges, colors });
       };
       img.src = URL.createObjectURL(file);
     });
@@ -134,27 +137,44 @@ export default function Home() {
       setStatus("No hay espectro de imagen para reconstruir");
       return;
     }
-    const { width, height, data } = spectrum.edges;
+    const { width, height, data, colors } = spectrum.edges as any;
     const canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext("2d")!;
     const imageData = ctx.createImageData(width, height);
 
+    // Reconstruct with edges + color blend
+    let colorIdx = 0;
     for (let i = 0; i < data.length; i++) {
-      const v = Math.min(255, data[i]);
-      imageData.data[i * 4] = v;
-      imageData.data[i * 4 + 1] = v;
-      imageData.data[i * 4 + 2] = v;
+      const edge = Math.min(255, data[i]);
+      const y = Math.floor(i / width);
+      const x = i % width;
+      
+      // Get color sample if available
+      let r = edge, g = edge, b = edge;
+      if (colors && (x % 2 === 0) && (y % 2 === 0) && colorIdx < colors.length) {
+        r = Math.min(255, colors[colorIdx] * 0.6 + edge * 0.4);
+        g = Math.min(255, colors[colorIdx + 1] * 0.6 + edge * 0.4);
+        b = Math.min(255, colors[colorIdx + 2] * 0.6 + edge * 0.4);
+        colorIdx += 3;
+      } else {
+        // Enhance edges
+        r = g = b = edge > 40 ? 255 : edge * 0.3;
+      }
+
+      imageData.data[i * 4] = r;
+      imageData.data[i * 4 + 1] = g;
+      imageData.data[i * 4 + 2] = b;
       imageData.data[i * 4 + 3] = 255;
     }
     ctx.putImageData(imageData, 0, 0);
 
     const a = document.createElement("a");
     a.href = canvas.toDataURL("image/png");
-    a.download = `reconstructed-edges-${Date.now()}.png`;
+    a.download = `reconstructed-${Date.now()}.png`;
     a.click();
-    setStatus("Imagen de bordes reconstruida");
+    setStatus("Imagen reconstruida (bordes + color)");
   };
 
   const downloadImage = async () => {
