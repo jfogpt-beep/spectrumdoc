@@ -156,6 +156,8 @@ export default function Home() {
     a.click();
     setStatus("Imagen de bordes reconstruida");
   };
+
+  const downloadImage = async () => {
     const svg = document.querySelector(".recharts-wrapper svg") as SVGElement | null;
     if (!svg) {
       setStatus("Genera primero un espectro");
