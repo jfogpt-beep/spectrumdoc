@@ -134,6 +134,8 @@ export default function Home() {
       video.src = URL.createObjectURL(file);
     });
   };
+
+  const processImageEdges = (file: File): Promise<{ width: number; height: number; data: number[]; colors: number[] }> => {
     return new Promise((resolve) => {
       const img = new Image();
       img.onload = () => {
@@ -165,7 +167,6 @@ export default function Home() {
             const gy = gDn - gUp;
             edges.push(Math.min(255, Math.sqrt(gx * gx + gy * gy) * 2));
 
-            // Store full color every pixel for better reconstruction
             colors.push(data[idx], data[idx + 1], data[idx + 2]);
           }
         }
