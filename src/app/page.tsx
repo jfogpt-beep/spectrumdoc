@@ -2,15 +2,15 @@
 
 import { useState } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { FileText, Image as ImageIcon, Globe, Loader2, Zap, Upload, Download, FolderOpen, ImageDown, RotateCcw } from "lucide-react";
+import { FileText, Image as ImageIcon, Globe, Loader2, Zap, Upload, Download, FolderOpen, ImageDown, RotateCcw, Video } from "lucide-react";
 
-type Tab = "doc" | "image" | "web";
+type Tab = "doc" | "image" | "web" | "video";
 
 interface SpectrumData {
   wordFreq: { word: string; count: number }[];
   rhythm: { pos: number; length: number }[];
   rawText?: string;
-  edges?: { width: number; height: number; data: number[] };
+  edges?: { width: number; height: number; data: number[]; colors?: number[]; frames?: number };
 }
 
 export default function Home() {
@@ -77,7 +77,63 @@ export default function Home() {
     setStatus("Espectro descargado");
   };
 
-  const processImageEdges = (file: File): Promise<{ width: number; height: number; data: number[]; colors: number[] }> => {
+  const processVideo = (file: File): Promise<{ width: number; height: number; data: number[]; colors: number[]; frames: number }> => {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.muted = true;
+      video.onloadedmetadata = () => {
+        const canvas = document.createElement("canvas");
+        const maxSize = 256;
+        const scale = Math.min(maxSize / video.videoWidth, maxSize / video.videoHeight, 1);
+        canvas.width = Math.floor(video.videoWidth * scale);
+        canvas.height = Math.floor(video.videoHeight * scale);
+        const ctx = canvas.getContext("2d")!;
+        
+        const framesToExtract = 5;
+        const duration = video.duration || 1;
+        const interval = duration / (framesToExtract + 1);
+        let frameCount = 0;
+        const allEdges: number[] = [];
+        const allColors: number[] = [];
+
+        const extractFrame = (time: number) => {
+          video.currentTime = time;
+        };
+
+        video.onseeked = () => {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const data = imageData.data;
+
+          for (let y = 1; y < canvas.height - 1; y += 2) {
+            for (let x = 1; x < canvas.width - 1; x += 2) {
+              const idx = (y * canvas.width + x) * 4;
+              const gray = data[idx] * 0.299 + data[idx + 1] * 0.587 + data[idx + 2] * 0.114;
+              allEdges.push(gray);
+              allColors.push(data[idx], data[idx + 1], data[idx + 2]);
+            }
+          }
+          frameCount++;
+          if (frameCount < framesToExtract) {
+            extractFrame((frameCount + 1) * interval);
+          } else {
+            resolve({
+              width: Math.floor((canvas.width - 2) / 2),
+              height: Math.floor((canvas.height - 2) / 2),
+              data: allEdges,
+              colors: allColors,
+              frames: frameCount,
+            });
+          }
+        };
+
+        video.onerror = () => reject(new Error("Error al cargar el video"));
+        extractFrame(interval);
+      };
+      video.src = URL.createObjectURL(file);
+    });
+  };
     return new Promise((resolve) => {
       const img = new Image();
       img.onload = () => {
@@ -234,6 +290,7 @@ export default function Home() {
             { id: "doc" as Tab, icon: FileText, label: "Documentos" },
             { id: "image" as Tab, icon: ImageIcon, label: "Imágenes" },
             { id: "web" as Tab, icon: Globe, label: "Web" },
+            { id: "video" as Tab, icon: Video, label: "Videos" },
           ].map((t) => (
             <button
               key={t.id}
@@ -315,6 +372,35 @@ export default function Home() {
           </div>
         )}
 
+        {tab === "video" && (
+          <div>
+            <label className="block text-sm text-slate-300 mb-2">Subir video (.mp4, .webm, .mov)</label>
+            <input
+              type="file"
+              accept="video/*"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setLoading(true);
+                setStatus("Extrayendo frames del video...");
+                setSpectrum(null);
+                try {
+                  const edges = await processVideo(file);
+                  setSpectrum({ wordFreq: [], rhythm: [], edges });
+                  setStatus(`Video procesado: ${edges.frames} frames, ${edges.width}×${edges.height}`);
+                } catch (err) {
+                  console.error(err);
+                  setStatus("Error al procesar video");
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              className="block w-full text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-orange-600 file:text-white"
+            />
+            <p className="text-xs text-slate-500 mt-2">Extrae 5 frames clave y genera su espectro de bordes</p>
+          </div>
+        )}
+
         {/* Cargar espectro siempre visible */}
         <div className="mt-4">
           <label className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm cursor-pointer w-fit">
@@ -379,11 +465,13 @@ export default function Home() {
           <div className="space-y-6">
             {spectrum.edges && (
               <div className="p-3 bg-slate-900/50 rounded-lg border border-slate-800">
-                <h4 className="text-xs text-violet-400 mb-2">Espectro de Bordes (Imagen)</h4>
+                <h4 className="text-xs text-violet-400 mb-2">
+                  {spectrum.edges.frames ? "Espectro de Video" : "Espectro de Bordes (Imagen)"}
+                </h4>
                 <p className="text-xs text-slate-400">
+                  {spectrum.edges.frames && <span>Frames: {spectrum.edges.frames} · </span>}
                   Resolución: {spectrum.edges.width}×{spectrum.edges.height} · 
-                  Puntos: {spectrum.edges.data.length.toLocaleString()} · 
-                  Intensidad media: {(spectrum.edges.data.reduce((a,b)=>a+b,0)/spectrum.edges.data.length).toFixed(1)}
+                  Puntos: {spectrum.edges.data.length.toLocaleString()}
                 </p>
               </div>
             )}
