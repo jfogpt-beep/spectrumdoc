@@ -208,6 +208,8 @@ export default function Home() {
     a.click();
     setStatus(`Frame reconstruido (${frameData.length} frames disponibles)`);
   };
+
+  const reconstructImage = () => {
     if (!spectrum?.edges) {
       setStatus("No hay espectro de imagen para reconstruir");
       return;
@@ -223,12 +225,10 @@ export default function Home() {
       const edge = data[i];
       const cIdx = i * 3;
       
-      // Blend original color with edge enhancement
       let r = colors?.[cIdx] ?? edge;
       let g = colors?.[cIdx + 1] ?? edge;
       let b = colors?.[cIdx + 2] ?? edge;
 
-      // Enhance edges
       if (edge > 60) {
         r = Math.min(255, r * 0.7 + 255 * 0.3);
         g = Math.min(255, g * 0.7 + 255 * 0.3);
@@ -242,7 +242,6 @@ export default function Home() {
     }
     ctx.putImageData(imageData, 0, 0);
 
-    // Upscale 2x with smoothing for better quality
     const upscale = document.createElement("canvas");
     upscale.width = width * 2;
     upscale.height = height * 2;
