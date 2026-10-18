@@ -183,30 +183,34 @@ export default function Home() {
       setStatus("No hay frames de video para reconstruir");
       return;
     }
-    const { width, height, frameData, colors } = spectrum.edges as any;
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d")!;
-
-    // Reconstruct first frame as preview
-    const frame = frameData[0];
-    const imageData = ctx.createImageData(width, height);
+    const { width, height, frameData } = spectrum.edges as any;
     
-    for (let i = 0; i < Math.min(frame.length, width * height); i++) {
-      const v = Math.min(255, frame[i]);
-      imageData.data[i * 4] = v;
-      imageData.data[i * 4 + 1] = v;
-      imageData.data[i * 4 + 2] = v;
-      imageData.data[i * 4 + 3] = 255;
-    }
-    ctx.putImageData(imageData, 0, 0);
+    // Reconstruct all frames and download as sequence
+    frameData.forEach((frame: number[], idx: number) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d")!;
+      const imageData = ctx.createImageData(width, height);
+      
+      for (let i = 0; i < Math.min(frame.length, width * height); i++) {
+        const v = Math.min(255, frame[i]);
+        imageData.data[i * 4] = v;
+        imageData.data[i * 4 + 1] = v;
+        imageData.data[i * 4 + 2] = v;
+        imageData.data[i * 4 + 3] = 255;
+      }
+      ctx.putImageData(imageData, 0, 0);
 
-    const a = document.createElement("a");
-    a.href = canvas.toDataURL("image/png");
-    a.download = `video-frame-reconstructed-${Date.now()}.png`;
-    a.click();
-    setStatus(`Frame reconstruido (${frameData.length} frames disponibles)`);
+      setTimeout(() => {
+        const a = document.createElement("a");
+        a.href = canvas.toDataURL("image/png");
+        a.download = `video-frame-${String(idx + 1).padStart(2, "0")}.png`;
+        a.click();
+      }, idx * 300);
+    });
+
+    setStatus(`Descargando ${frameData.length} frames reconstruidos...`);
   };
 
   const reconstructImage = () => {
