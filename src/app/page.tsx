@@ -10,7 +10,7 @@ interface SpectrumData {
   wordFreq: { word: string; count: number }[];
   rhythm: { pos: number; length: number }[];
   rawText?: string;
-  edges?: { width: number; height: number; data: number[]; colors?: number[]; frames?: number };
+  edges?: { width: number; height: number; data: number[]; colors?: number[]; frames?: number; frameData?: number[][] };
 }
 
 export default function Home() {
@@ -77,7 +77,7 @@ export default function Home() {
     setStatus("Espectro descargado");
   };
 
-  const processVideo = (file: File): Promise<{ width: number; height: number; data: number[]; colors: number[]; frames: number }> => {
+  const processVideo = (file: File): Promise<{ width: number; height: number; data: number[]; colors: number[]; frames: number; frameData: number[][] }> => {
     return new Promise((resolve, reject) => {
       const video = document.createElement("video");
       video.preload = "metadata";
