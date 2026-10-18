@@ -96,6 +96,7 @@ export default function Home() {
         let frameCount = 0;
         const allEdges: number[] = [];
         const allColors: number[] = [];
+        const frameData: number[][] = [];
 
         const extractFrame = (time: number) => {
           video.currentTime = time;
@@ -124,6 +125,7 @@ export default function Home() {
               data: allEdges,
               colors: allColors,
               frames: frameCount,
+              frameData,
             });
           }
         };
@@ -176,7 +178,36 @@ export default function Home() {
     });
   };
 
-  const reconstructImage = () => {
+  const reconstructVideo = () => {
+    if (!spectrum?.edges?.frameData || spectrum.edges.frameData.length === 0) {
+      setStatus("No hay frames de video para reconstruir");
+      return;
+    }
+    const { width, height, frameData, colors } = spectrum.edges as any;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d")!;
+
+    // Reconstruct first frame as preview
+    const frame = frameData[0];
+    const imageData = ctx.createImageData(width, height);
+    
+    for (let i = 0; i < Math.min(frame.length, width * height); i++) {
+      const v = Math.min(255, frame[i]);
+      imageData.data[i * 4] = v;
+      imageData.data[i * 4 + 1] = v;
+      imageData.data[i * 4 + 2] = v;
+      imageData.data[i * 4 + 3] = 255;
+    }
+    ctx.putImageData(imageData, 0, 0);
+
+    const a = document.createElement("a");
+    a.href = canvas.toDataURL("image/png");
+    a.download = `video-frame-reconstructed-${Date.now()}.png`;
+    a.click();
+    setStatus(`Frame reconstruido (${frameData.length} frames disponibles)`);
+  };
     if (!spectrum?.edges) {
       setStatus("No hay espectro de imagen para reconstruir");
       return;
@@ -451,6 +482,14 @@ export default function Home() {
           >
             <RotateCcw size={16} /> Reconstruir Imagen
           </button>
+          {spectrum?.edges?.frames && (
+            <button
+              onClick={reconstructVideo}
+              className="flex items-center gap-2 px-4 py-2 bg-orange-700 hover:bg-orange-600 rounded-lg text-sm"
+            >
+              <Video size={16} /> Reconstruir Video
+            </button>
+          )}
           <label className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm cursor-pointer">
             <FolderOpen size={16} /> Cargar Espectro
             <input
